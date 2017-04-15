@@ -1,5 +1,6 @@
 import Protolude
 import Control.Concurrent (threadDelay)
+import System.IO (hClose)
 
 import qualified Network.Fancy as N
 import qualified System.IO.Streams as S
@@ -15,14 +16,19 @@ main = do
 
 
 handleConnection :: Handle -> N.Address -> IO ()
-handleConnection h _ = do
+handleConnection h _ =
+  finally (handleConnection' h) (hClose h)
+
+
+handleConnection' :: Handle -> IO ()
+handleConnection' h = do
   (is, os) <- S.handleToStreams h
   intS <- S.mapMaybe (readMaybe . toS) is
   mvar <- newMVar 50
   tId <- forkIO (handleRead intS mvar)
   handle (handleEx tId) (handleWrite os mvar)
   where
-    handleEx :: ThreadId -> SomeException -> IO ()
+    handleEx :: ThreadId -> IOException -> IO ()
     handleEx tId _ = killThread tId
 
 
