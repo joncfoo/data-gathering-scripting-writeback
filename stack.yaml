@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-8.9
+resolver: lts-8.10
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -41,6 +41,8 @@ packages:
 # (e.g., acme-missiles-0.3)
 extra-deps:
   - network-fancy-0.2.4
+  - pipes-break-0.2.0.6
+  - pipes-network-0.6.4.1
 
 # Override default flag values for local packages and extra-deps
 flags: {}
@@ -68,4 +70,4 @@ extra-package-dbs: []
 
 nix:
   enable: true
-  packages: [zlib]
+  shell-file: shell.nix

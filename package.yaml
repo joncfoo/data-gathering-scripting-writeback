@@ -6,9 +6,22 @@ ghc-options: -Wall
 dependencies:
   - base >= 4.7 && < 5
   - protolude
+  - containers
+  - errors
+  - hslua
   - io-streams
+  - megaparsec
   - network-fancy
+  - pipes
+  - pipes-break
+  - pipes-extras
+  - pipes-bytestring
+  - pipes-concurrency
+  - pipes-network
+  - pipes-safe
   - random
+  - Spock
+  - sqlite-simple
   - text
 
 default-extensions:
