@@ -25,6 +25,7 @@ dependencies:
   - text
 
 default-extensions:
+  - FlexibleContexts
   - LambdaCase
   - NoImplicitPrelude
   - OverloadedStrings
