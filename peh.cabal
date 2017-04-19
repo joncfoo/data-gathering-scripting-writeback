@@ -19,9 +19,8 @@ executable datacon
     , containers
     , errors
     , hslua
-    , io-streams
     , megaparsec
-    , network-fancy
+    , network-simple
     , pipes
     , pipes-break
     , pipes-extras
@@ -29,6 +28,7 @@ executable datacon
     , pipes-concurrency
     , pipes-network
     , pipes-safe
+    , pipes-text
     , random
     , Spock
     , sqlite-simple
@@ -47,9 +47,8 @@ executable datagen
     , containers
     , errors
     , hslua
-    , io-streams
     , megaparsec
-    , network-fancy
+    , network-simple
     , pipes
     , pipes-break
     , pipes-extras
@@ -57,6 +56,7 @@ executable datagen
     , pipes-concurrency
     , pipes-network
     , pipes-safe
+    , pipes-text
     , random
     , Spock
     , sqlite-simple

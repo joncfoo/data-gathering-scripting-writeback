@@ -1,48 +1,51 @@
 import Protolude
 import Control.Concurrent (threadDelay)
-import System.IO (hClose)
+import Pipes
 
-import qualified Network.Fancy as N
-import qualified System.IO.Streams as S
+import qualified Network.Simple.TCP as N
+import qualified Pipes.Text.Encoding as PE
+import qualified Pipes.Network.TCP as PN
+import qualified Pipes.Prelude as P
 
 
 main :: IO ()
 main = do
-  forM_ [5000..5010] (\p -> N.streamServer (serverSpec p) handleConnection)
-  N.sleepForever
+  forM_ [5001..5005] (\p -> forkIO $ N.serve (N.Host "localhost") (show p) (handleConnection p))
+  sleepForever
+
+
+handleConnection :: Int -> (N.Socket, N.SockAddr) -> IO ()
+handleConnection port (sock, sockAddr) = do
+  mvar <- newMVar port
+  putText ("Listening: " <> show sockAddr)
+  _ <- forkIO $ runEffect $
+    void (PE.decodeUtf8 (PN.fromSocket sock 4096))
+    >-> toInt
+    >-> P.mapM_ (toData mvar)
+  runEffect $
+    fromData mvar
+    >-> P.map ((<> "\n") . show)
+    >-> PN.toSocket sock
   where
-    serverSpec port =
-      N.serverSpec { N.address = N.IP "localhost" port }
+    fromData :: MVar Int -> Producer Int IO ()
+    fromData mvar = forever $ do
+      lift (sleep $ (port - 5000) * 1000)
+      lift (readMVar mvar) >>= yield
+
+    toData :: MVar Int -> Int -> IO ()
+    toData mvar i = void $ swapMVar mvar i
 
 
-handleConnection :: Handle -> N.Address -> IO ()
-handleConnection h _ =
-  finally (handleConnection' h) (hClose h)
+-- | sleep for n milliseconds
+sleep :: Int -> IO ()
+sleep = threadDelay . (* 1000)
 
+-- | Sleep forever. Useful after a server.
+sleepForever :: IO ()
+sleepForever = threadDelay maxBound >> sleepForever
 
-handleConnection' :: Handle -> IO ()
-handleConnection' h = do
-  (is, os) <- S.handleToStreams h
-  intS <- S.mapMaybe (readMaybe . toS) is
-  mvar <- newMVar 50
-  tId <- forkIO (handleRead intS mvar)
-  handle (handleEx tId) (handleWrite os mvar)
-  where
-    handleEx :: ThreadId -> IOException -> IO ()
-    handleEx tId _ = killThread tId
-
-
-handleRead :: S.InputStream Int -> MVar Int -> IO ()
-handleRead is mvar =
-  S.read is >>= \case
+toInt :: Monad m => Pipe Text Int m ()
+toInt = forever $
+  (readMaybe . toS) <$> await >>= \case
     Nothing -> pure ()
-    Just n  -> swapMVar mvar n
-               >> handleRead is mvar
-
-
-handleWrite :: S.OutputStream ByteString -> MVar Int -> IO ()
-handleWrite os mvar = forever $ do
-  i <- readMVar mvar
-  S.write (Just (show i <> "\n")) os
-  S.write (Just "") os
-  threadDelay (1000 * 1000)
+    Just i  -> yield i

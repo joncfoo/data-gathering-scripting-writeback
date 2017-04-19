@@ -1,55 +1,50 @@
 import Protolude
 import Control.Concurrent (threadDelay)
 import Data.Map.Strict (Map)
-import System.IO (hClose)
+import Pipes
+import Pipes.Concurrent
 
 import qualified Data.Map.Strict as Map
-import qualified Network.Fancy as N
-import qualified System.IO.Streams as S
-
-
-consumer :: MVar (Map Text Text) -> IO ()
-consumer cells = forever $
-  do
-    content <- readMVar cells
-    putText (content & Map.showTree & toS)
-    threadDelay (1000 * 1000)
+import qualified Network.Simple.TCP as N
+import qualified Pipes.ByteString as PB
+import qualified Pipes.Text.Encoding as PE
+import qualified Pipes.Prelude.Text as PT
+import qualified Pipes.Network.TCP as PN
+import qualified Pipes.Prelude as P
 
 
 main :: IO ()
 main = do
-  cells <- newMVar Map.empty
-  h <- N.connectStream (N.IP "localhost" 5000)
-  (is, os) <- S.handleToStreams h
-  tId <- forkIO (handleWrite is cells)
-  forkIO $ consumer cells
-  finally (handleRead os tId) (hClose h)
+  (output, input) <- spawn (bounded 10)
+  forM_ [5001..5005] (\p -> forkIO $ N.connect "localhost" (show p) (slurp p output))
+  runEffect $ fromInput input >-> sink
 
 
-handleRead :: S.OutputStream ByteString -> ThreadId -> IO ()
-handleRead os tId =
-  S.lines S.stdin
-  >>= S.mapMaybe toInt
-  >>= S.map ((<> "\n") . show)
-  >>= S.read
-  >>= \case
-  Nothing -> killThread tId
-  Just n  -> S.write (Just n) os
-             >> S.write (Just "") os
-             >> handleRead os tId
+sink :: MonadIO m => Consumer (Int, Int) m ()
+sink = do
+  mv <- liftIO $ newMVar Map.empty
+  forever $ do
+    (k, v) <- await
+    m <- liftIO $ modifyMVar mv (\m -> let m' = Map.insert k v m in pure (m', m'))
+    if length m /= 5
+      then pure ()
+      else
+      liftIO $ do
+        _ <- swapMVar mv Map.empty
+        putStr (Map.showTree m)
 
 
-toInt :: ByteString -> Maybe Int
-toInt = readMaybe . toS
+slurp :: Int -> Output (Int, Int) -> (N.Socket, N.SockAddr) -> IO ()
+slurp port output (sock, _) =
+  runEffect $
+    void (PE.decodeUtf8 (PN.fromSocket sock 4096))
+    >-> toInt
+    >-> P.map (\i -> (port, i))
+    >-> toOutput output
 
 
-handleWrite :: S.InputStream ByteString -> MVar (Map Text Text) -> IO ()
-handleWrite is cells =
-  S.mapMaybe toInt is
-  >>= S.map show
-  >>= S.mapM fn
-  >>= S.connectTo S.stdout
-  where
-    fn v =
-      swapMVar cells (Map.singleton "5000" (toS v))
-      >> pure v
+toInt :: Monad m => Pipe Text Int m ()
+toInt = forever $
+  (readMaybe . toS) <$> await >>= \case
+    Nothing -> pure ()
+    Just i  -> yield i
