@@ -28,6 +28,7 @@ dependencies:
   - text
 
 default-extensions:
+  - DeriveGeneric
   - FlexibleContexts
   - LambdaCase
   - NoImplicitPrelude

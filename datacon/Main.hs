@@ -1,8 +1,10 @@
 import Protolude
 import Pipes
 import Pipes.Concurrent
-import Scripting.Lua (LuaState, StackValue(..))
+
 import Data.Hashable (Hashable)
+
+import Scripting.Lua (LuaState, StackValue(..))
 
 import qualified Data.Map.Strict as Map
 import qualified Scripting.Lua.Aeson as LA
@@ -13,15 +15,38 @@ import qualified Pipes.Network.TCP as PN
 import qualified Pipes.Prelude as P
 
 
+type Device = (Text, Output Int)
+type DeviceOutput = (Text, Int)
+
 main :: IO ()
 main = do
-  (output, input) <- spawn (bounded 10)
-  forM_ [5001..5005] (\p -> forkIO $ N.connect "localhost" (show p) (slurp p output))
-  runEffect $ fromInput input >-> sink
+  (sink, source) <- spawn (bounded 10)
+  devices <- forM [5001..5005] (connect sink)
+  runEffect $ fromInput source >-> sink' (Map.fromList devices)
 
 
-sink :: MonadIO m => Consumer (Text, Int) m ()
-sink = do
+connect :: Output DeviceOutput -> Int -> IO Device
+connect sink port = do
+  (sock, _) <- N.connectSock "localhost" (show port)
+  (output, input) <- spawn (bounded 1)
+  let name = "d" <> show (port - 5000)
+      device = (name, output)
+  -- TODO should catch errors and release
+  _ <- forkIO $ runEffect $
+       void (PE.decodeUtf8 (PN.fromSocket sock 4096))
+       >-> toInt
+       >-> P.map (\i -> (name, i))
+       >-> toOutput sink
+  _ <- forkIO $ runEffect $
+       fromInput input
+       >-> P.map (\v -> show v <> "\n")
+       >-> PN.toSocket sock
+  pure device
+
+
+
+sink' :: MonadIO m => Map Text (Output Int) -> Consumer DeviceOutput m ()
+sink' devices = do
   mv <- liftIO $ newMVar Map.empty
   forever $ do
     (k, v) <- await
@@ -33,14 +58,17 @@ sink = do
         _ <- swapMVar mv Map.empty
         ls <- LA.newstate
         Lua.openlibs ls
-        Lua.registerhsfunction ls "hello" hello
+        Lua.registerhsfunction ls "newData" newData
         Lua.push ls m *> Lua.setglobal ls "vars"
         Lua.loadfile ls "script.lua"
         Lua.call ls 0 0
         Lua.close ls
   where
-    hello :: ByteString -> IO ()
-    hello = putText . toS
+    newData :: ByteString -> Int -> IO ()
+    newData name value =
+      case Map.lookup (toS name) devices of
+        Nothing  -> putText ("Device " <> toS name <> " not found")
+        Just out -> void $ atomically (send out value)
 
 
 slurp :: Int -> Output (Text, Int) -> (N.Socket, N.SockAddr) -> IO ()
@@ -48,7 +76,7 @@ slurp port output (sock, _) =
   runEffect $
     void (PE.decodeUtf8 (PN.fromSocket sock 4096))
     >-> toInt
-    >-> P.map (\i -> ("c" <> show (port - 5000), i))
+    >-> P.map (\i -> ("c" <> show port, i))
     >-> toOutput output
 
 

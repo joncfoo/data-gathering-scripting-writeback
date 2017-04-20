@@ -10,13 +10,13 @@ import qualified Pipes.Prelude as P
 
 main :: IO ()
 main = do
-  forM_ [5001..5005] (\p -> forkIO $ N.serve (N.Host "localhost") (show p) (handleConnection p))
+  forM_ [5001..5005] (\p -> forkIO $ N.serve (N.Host "localhost") (show p) (handleConnection (p - 5000)))
   sleepForever
 
 
 handleConnection :: Int -> (N.Socket, N.SockAddr) -> IO ()
-handleConnection port (sock, sockAddr) = do
-  mvar <- newMVar port
+handleConnection value (sock, sockAddr) = do
+  mvar <- newMVar value
   putText ("Listening: " <> show sockAddr)
   _ <- forkIO $ runEffect $
     void (PE.decodeUtf8 (PN.fromSocket sock 4096))
@@ -29,7 +29,7 @@ handleConnection port (sock, sockAddr) = do
   where
     fromData :: MVar Int -> Producer Int IO ()
     fromData mvar = forever $ do
-      lift (sleep $ (port - 5000) * 1000)
+      lift (sleep $ value * 1000)
       lift (readMVar mvar) >>= yield
 
     toData :: MVar Int -> Int -> IO ()

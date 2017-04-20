@@ -11,7 +11,7 @@ executable datacon
   main-is: Main.hs
   hs-source-dirs:
       datacon
-  default-extensions: FlexibleContexts LambdaCase NoImplicitPrelude OverloadedStrings ScopedTypeVariables
+  default-extensions: DeriveGeneric FlexibleContexts LambdaCase NoImplicitPrelude OverloadedStrings ScopedTypeVariables
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >= 4.7 && < 5
@@ -42,7 +42,7 @@ executable datagen
   main-is: Main.hs
   hs-source-dirs:
       datagen
-  default-extensions: FlexibleContexts LambdaCase NoImplicitPrelude OverloadedStrings ScopedTypeVariables
+  default-extensions: DeriveGeneric FlexibleContexts LambdaCase NoImplicitPrelude OverloadedStrings ScopedTypeVariables
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >= 4.7 && < 5
