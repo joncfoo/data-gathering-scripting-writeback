@@ -43,6 +43,8 @@ extra-deps:
   - network-fancy-0.2.4
   - pipes-break-0.2.0.6
   - pipes-network-0.6.4.1
+  - hslua-0.5.0
+  - hslua-aeson-0.1.0.4
 
 # Override default flag values for local packages and extra-deps
 flags: {}

@@ -6,9 +6,12 @@ ghc-options: -Wall
 dependencies:
   - base >= 4.7 && < 5
   - protolude
+  - aeson
   - containers
   - errors
+  - hashable
   - hslua
+  - hslua-aeson
   - megaparsec
   - network-simple
   - pipes
